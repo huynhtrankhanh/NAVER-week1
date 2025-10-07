@@ -1,47 +1,49 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 
 // Configuration
 const MCTS_ITERATIONS = 2000;
 const EXPLORATION_CONSTANT = Math.sqrt(2);
 
 // Player enum
-const Player = {
-  X: 'X',
-  O: 'O'
-};
+enum Player {
+  X = 'X',
+  O = 'O'
+}
 
 // Outcome constants for precomputed minimax
-const OUTCOME_ONGOING = 0;
 const OUTCOME_X_WINS = 1;
 const OUTCOME_O_WINS = 2;
 const OUTCOME_DRAW = 3;
 
-const getOpponent = (player) => player === Player.X ? Player.O : Player.X;
+const getOpponent = (player: Player): Player => player === Player.X ? Player.O : Player.X;
 
 // Game State class
 class GameState {
-  constructor(board = Array(9).fill(null), currentPlayer = Player.X) {
+  board: (Player | null)[];
+  currentPlayer: Player;
+
+  constructor(board: (Player | null)[] = Array(9).fill(null), currentPlayer: Player = Player.X) {
     this.board = [...board];
     this.currentPlayer = currentPlayer;
   }
 
-  display() {
+  display(): (Player | null)[] {
     return this.board;
   }
 
-  getLegalMoves() {
+  getLegalMoves(): number[] {
     return this.board
       .map((cell, index) => cell === null ? index : null)
-      .filter(index => index !== null);
+      .filter((index): index is number => index !== null);
   }
 
-  makeMove(action) {
+  makeMove(action: number): GameState {
     const newBoard = [...this.board];
     newBoard[action] = this.currentPlayer;
     return new GameState(newBoard, getOpponent(this.currentPlayer));
   }
 
-  getWinner() {
+  getWinner(): Player | null {
     const lines = [
       [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
       [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
@@ -57,17 +59,17 @@ class GameState {
     return null;
   }
 
-  isTerminal() {
+  isTerminal(): boolean {
     return this.getWinner() !== null || this.getLegalMoves().length === 0;
   }
 
-  clone() {
+  clone(): GameState {
     return new GameState([...this.board], this.currentPlayer);
   }
 }
 
 // Board encoding: convert board to base-3 index
-function boardToIndex(board) {
+function boardToIndex(board: (Player | null)[]): number {
   let index = 0;
   for (let i = 0; i < 9; i++) {
     const cell = board[i];
@@ -78,25 +80,25 @@ function boardToIndex(board) {
 }
 
 // Precompute all game outcomes using minimax with dynamic programming
-function precomputeAllGames() {
+function precomputeAllGames(): Uint8Array {
   const totalStates = Math.pow(3, 9); // 19,683 possible board states
   const outcomes = new Uint8Array(totalStates);
   
   // Memoization cache
-  const memo = new Map();
+  const memo = new Map<number, number>();
   
-  function minimax(state) {
+  function minimax(state: GameState): number {
     const index = boardToIndex(state.board);
     
     // Check memo
     if (memo.has(index)) {
-      return memo.get(index);
+      return memo.get(index)!;
     }
     
     // Check terminal states
     if (state.isTerminal()) {
       const winner = state.getWinner();
-      let outcome;
+      let outcome: number;
       if (winner === Player.X) {
         outcome = OUTCOME_X_WINS;
       } else if (winner === Player.O) {
@@ -112,7 +114,7 @@ function precomputeAllGames() {
     const legalMoves = state.getLegalMoves();
     const isXTurn = state.currentPlayer === Player.X;
     
-    let bestOutcome;
+    let bestOutcome: number;
     if (isXTurn) {
       // X wants to maximize (looking for X win)
       bestOutcome = OUTCOME_O_WINS; // Worst case for X
@@ -157,7 +159,15 @@ function precomputeAllGames() {
 
 // MCTS Node class (kept for difficult mode)
 class Node {
-  constructor(state, parentIndex = null, moveFromParent = null) {
+  state: GameState;
+  parentIndex: number | null;
+  childrenIndices: number[];
+  visits: number;
+  wins: number;
+  untriedMoves: number[];
+  moveFromParent: number | null;
+
+  constructor(state: GameState, parentIndex: number | null = null, moveFromParent: number | null = null) {
     this.state = state.clone();
     this.parentIndex = parentIndex;
     this.childrenIndices = [];
@@ -167,7 +177,7 @@ class Node {
     this.moveFromParent = moveFromParent;
   }
 
-  ucb1(parentVisits) {
+  ucb1(parentVisits: number): number {
     if (this.visits === 0) {
       return Infinity;
     }
@@ -176,19 +186,21 @@ class Node {
     return winRate + exploration;
   }
 
-  isFullyExpanded() {
+  isFullyExpanded(): boolean {
     return this.untriedMoves.length === 0;
   }
 }
 
 // MCTS class (kept for difficult mode)
 class MCTS {
-  constructor(rootState) {
+  tree: Node[];
+
+  constructor(rootState: GameState) {
     const rootNode = new Node(rootState);
     this.tree = [rootNode];
   }
 
-  run() {
+  run(): void {
     for (let i = 0; i < MCTS_ITERATIONS; i++) {
       const selectedIndex = this.select();
       const expandedIndex = this.expand(selectedIndex);
@@ -197,8 +209,9 @@ class MCTS {
     }
   }
 
-  select() {
+  select(): number {
     let currentIndex = 0;
+    // eslint-disable-next-line no-constant-condition
     while (true) {
       if (this.tree[currentIndex].state.isTerminal()) {
         return currentIndex;
@@ -217,7 +230,7 @@ class MCTS {
     }
   }
 
-  expand(nodeIndex) {
+  expand(nodeIndex: number): number {
     if (this.tree[nodeIndex].state.isTerminal()) {
       return nodeIndex;
     }
@@ -236,7 +249,7 @@ class MCTS {
     return newNodeIndex;
   }
 
-  simulate(startState) {
+  simulate(startState: GameState): number {
     let currentState = startState.clone();
     while (!currentState.isTerminal()) {
       const legalMoves = currentState.getLegalMoves();
@@ -247,15 +260,15 @@ class MCTS {
     return currentState.getWinner() ? 1.0 : 0.5;
   }
 
-  backpropagate(nodeIndex, result) {
-    let currentIndex = nodeIndex;
+  backpropagate(nodeIndex: number, result: number): void {
+    let currentIndex: number | null = nodeIndex;
     let currentResult = result;
 
-    while (currentIndex !== undefined) {
+    while (currentIndex !== null) {
       this.tree[currentIndex].visits++;
       this.tree[currentIndex].wins += currentResult;
 
-      const parentIndex = this.tree[currentIndex].parentIndex;
+      const parentIndex: number | null = this.tree[currentIndex].parentIndex;
       if (parentIndex !== null) {
         currentIndex = parentIndex;
         currentResult = 1.0 - currentResult;
@@ -265,7 +278,7 @@ class MCTS {
     }
   }
 
-  bestMove() {
+  bestMove(): number | null {
     const root = this.tree[0];
     if (root.childrenIndices.length === 0) {
       return null;
@@ -279,13 +292,15 @@ class MCTS {
   }
 }
 
+type GameMode = 'easy' | 'precomputed' | 'difficult' | null;
+
 // React Component
 export default function TicTacToeGame() {
   const [gameState, setGameState] = useState(() => new GameState());
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [gameStatus, setGameStatus] = useState('');
   const [aiThinkingTime, setAiThinkingTime] = useState(0);
-  const [gameMode, setGameMode] = useState(null);
+  const [gameMode, setGameMode] = useState<GameMode>(null);
   const [isPrecomputing, setIsPrecomputing] = useState(true);
   const [precomputeTime, setPrecomputeTime] = useState(0);
 
@@ -302,7 +317,7 @@ export default function TicTacToeGame() {
     return outcomes;
   }, []);
 
-  const updateGameStatus = useCallback((state) => {
+  const updateGameStatus = useCallback((state: GameState) => {
     const winner = state.getWinner();
     if (winner === humanPlayer) {
       setGameStatus(`You win! 🎉`);
@@ -317,12 +332,12 @@ export default function TicTacToeGame() {
     }
   }, [humanPlayer, aiPlayer]);
 
-  const makeAiMove = useCallback(async (currentState) => {
+  const makeAiMove = useCallback(async (currentState: GameState) => {
     setIsAiThinking(true);
     const startTime = performance.now();
     
     setTimeout(() => {
-      let action;
+      let action: number | null = null;
       
       if (gameMode === 'easy') {
         // Easy mode: random move
@@ -383,7 +398,7 @@ export default function TicTacToeGame() {
     }, 50);
   }, [gameMode, precomputedOutcomes]);
 
-  const handleCellClick = useCallback((index) => {
+  const handleCellClick = useCallback((index: number) => {
     if (gameState.board[index] !== null || gameState.isTerminal() || isAiThinking || gameState.currentPlayer !== humanPlayer) {
       return;
     }
@@ -407,7 +422,7 @@ export default function TicTacToeGame() {
     }
   }, [gameState, aiPlayer, isAiThinking, makeAiMove, updateGameStatus, gameMode]);
 
-  const renderCell = (index) => {
+  const renderCell = (index: number) => {
     const value = gameState.board[index];
     const isClickable = !value && !gameState.isTerminal() && !isAiThinking && gameState.currentPlayer === humanPlayer;
     
