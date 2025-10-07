@@ -4,6 +4,8 @@
 
 A sophisticated Tic-Tac-Toe game built with React, TypeScript, and Vite featuring multiple AI difficulty levels.
 
+**🎮 [Play the game online](https://huynhtrankhanh.github.io/NAVER-week1/)**
+
 ### Features
 
 - **Three AI Difficulty Levels:**
@@ -51,3 +53,10 @@ A sophisticated Tic-Tac-Toe game built with React, TypeScript, and Vite featurin
 The game uses sophisticated AI algorithms:
 - **Minimax with Dynamic Programming**: Precomputes all 19,683 possible board states for instant, perfect moves
 - **Monte Carlo Tree Search (MCTS)**: Uses UCB1 exploration strategy with 2000 simulations per move
+
+### Deployment
+
+The game is automatically deployed to GitHub Pages on every push to the main branch using GitHub Actions. The deployment workflow:
+1. Builds the project using `npm run build`
+2. Uploads the build artifacts to GitHub Pages
+3. Deploys to `https://huynhtrankhanh.github.io/NAVER-week1/`
