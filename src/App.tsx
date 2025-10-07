@@ -336,7 +336,7 @@ export default function TicTacToeGame() {
     setIsAiThinking(true);
     const startTime = performance.now();
     
-    setTimeout(() => {
+    (() => {
       let action: number | null = null;
       
       if (gameMode === 'easy') {
@@ -395,7 +395,7 @@ export default function TicTacToeGame() {
         setGameState(newState);
       }
       setIsAiThinking(false);
-    }, 50);
+    })();
   }, [gameMode, precomputedOutcomes]);
 
   const handleCellClick = useCallback((index: number) => {
